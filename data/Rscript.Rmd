@@ -1,0 +1,63 @@
+
+
+```{r}
+#Fig2 NMDS plot
+library(vegan)
+require(ggplot2)
+require(RColorBrewer)
+require(patchwork)
+require(gridExtra)
+require(dplyr)
+set.seed(10)
+
+#read csv (shikoku: snmds, kyushu: knmds)
+dfs = read.csv("./knmds.csv")
+dfs=dfs[rowSums(dfs[,3:ncol(dfs)])!=0,]
+
+#remove plot unlikely to represent meaningful patterns
+#shikoku
+#dfs = dfs %>% slice(-301)
+#kyushu
+dfs = dfs %>% filter(ID != 440100)
+
+df=dfs[,3:ncol(dfs)]
+group=dfs[,2]
+
+nmds <- metaMDS(df, distance="bray", autotransform = FALSE, trace = 0,k=2)
+plot(nmds, type="t", display="sites")
+
+
+# NMDSの結果（座標）をデータフレームに格納
+nmds_points <- as.data.frame(nmds$points)
+
+dist_matrix <- vegdist(df, method = "bray")
+
+# PERMANOVA
+adonis2(dist_matrix ~ group, data = data.frame(dfs$group), permutations = 999)
+
+nmds_points$MDS2 = -1*(nmds_points$MDS2)
+
+#For better visibility, the data for shikoku have the x- and y-axes reversed.
+#names(nmds_points)[c(1,2)] <- names(nmds_points)[c(2,1)]
+
+#add group information
+nmds_points$group <- group
+
+#plot
+fig = ggplot(nmds_points, aes(x = MDS1, y = MDS2,color = group)) +  geom_point(shape = 21,stroke=1, size = 3)  +  theme_minimal() +scale_color_manual(values=c("past"="#EF8636", "current"="#3B75AF"),labels = c("past" = "historical", "current" = "current")) +  theme(axis.title = element_text(size=18),plot.title = element_text(size=20),axis.text =element_text(size = 12)　,legend.text = element_text(size=15),　legend.title = element_text(size=15))+coord_fixed(1) #coord_fixed(1) is applied only kyushu
+
+fig
+```
+
+```{r}
+#Fig3 analyzing taxonomic diversity by iNEXT.4steps (Chao et al. 2020)
+library(iNEXT.4steps)
+set.seed(10)
+
+data = read.csv("./kyushurare.csv",row.names =1)
+
+inexs = iNEXT4steps(data, q = seq(0, 2, 0.2), datatype = "abundance",nboot = 30, conf = 0.95, nT = NULL, details = FALSE)
+
+write.csv(inexs[["summary"]][["STEP 3. Non-asymptotic coverage-based rarefaction and extrapolation analysis"]], file = "inext_kresult.csv", row.names = FALSE)
+```
+
